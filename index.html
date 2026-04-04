@@ -343,11 +343,7 @@
   <!-- SETUP PANEL -->
   <div class="setup-panel" id="setupPanel" style="display:none">
     <h2>Configuration</h2>
-    <div class="key-row">
-      <label>Spotify Client ID</label>
-      <input type="password" id="spotifyClientId" placeholder="paste your client ID…" oninput="saveKeys()" />
-      <div class="status-dot idle" id="spotifyDot"></div>
-    </div>
+    <input type="hidden" id="spotifyClientId" value="84d83d84b0204f848c649ea2543de2a6" />
     <div class="key-row">
       <label>Anthropic API Key</label>
       <input type="password" id="anthropicKey" placeholder="sk-ant-…" oninput="saveKeys()" />
@@ -627,8 +623,11 @@ async function searchSpotify(query, resultsId, onAdd) {
     const el = document.getElementById(resultsId);
     if (!items.length) { el.style.display = 'none'; return; }
     el.style.display = 'block';
-    el.innerHTML = items.map(t => `
-      <div class="search-result-item" onclick='addSeedFromResult(${JSON.stringify({id:t.id,name:t.name,artist:t.artists[0].name,img:t.album?.images?.[2]?.url||''})}, "${resultsId.includes('trans') ? 'dest' : 'main'}", "${resultsId}")'>
+    // Store results so onclick can reference by index safely
+    window._searchResultCache = items;
+    const type = resultsId.includes('trans') ? 'dest' : 'main';
+    el.innerHTML = items.map((t, idx) => `
+      <div class="search-result-item" onclick="addSeedFromCache(${idx}, '${type}', '${resultsId}')">
         <img class="result-img" src="${t.album?.images?.[2]?.url || ''}" alt="" />
         <div class="result-info">
           <div class="result-name">${escHtml(t.name)}</div>
@@ -645,6 +644,19 @@ function addSeedFromResult(track, type, resultsId) {
   document.getElementById(resultsId).style.display = 'none';
   if (type === 'main') document.getElementById('searchInput').value = '';
   else document.getElementById('transSearchInput').value = '';
+}
+
+function addSeedFromCache(idx, type, resultsId) {
+  const cache = window._searchResultCache || [];
+  const t = cache[idx];
+  if (!t) return;
+  const track = {
+    id: t.id,
+    name: t.name,
+    artist: t.artists[0].name,
+    img: t.album?.images?.[2]?.url || ''
+  };
+  addSeedFromResult(track, type, resultsId);
 }
 
 function addSeed(track, type) {
