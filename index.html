@@ -1,0 +1,1220 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI DJ Agent</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c26;
+    --border: #2a2a38;
+    --accent: #7c6aff;
+    --accent2: #ff6a9b;
+    --text: #e8e8f0;
+    --muted: #7070a0;
+    --success: #4ade80;
+    --danger: #f87171;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px;
+    min-height: 100vh;
+  }
+
+  /* GRID NOISE BACKGROUND */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(124,106,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,106,255,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #app { position: relative; z-index: 1; max-width: 860px; margin: 0 auto; padding: 2rem 1.5rem 6rem; }
+
+  /* HEADER */
+  header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 2.5rem; }
+  .logo { font-family: 'Space Mono', monospace; font-size: 1.1rem; color: var(--accent); letter-spacing: 0.05em; }
+  .logo span { color: var(--accent2); }
+  .header-actions { display: flex; gap: 0.75rem; align-items: center; }
+
+  /* BUTTONS */
+  button {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 14px;
+    cursor: pointer;
+    border: none;
+    transition: all 0.15s;
+  }
+  .btn-primary {
+    background: var(--accent);
+    color: #fff;
+    padding: 0.5rem 1.25rem;
+    border-radius: 6px;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: #6857ee; transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { background: #3a3560; color: var(--muted); cursor: not-allowed; transform: none; }
+
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    padding: 0.5rem 1rem;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+  }
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); }
+
+  .btn-icon {
+    background: transparent;
+    color: var(--muted);
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .btn-icon:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* SETUP PANEL */
+  .setup-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.5rem;
+  }
+  .setup-panel h2 { font-family: 'Space Mono', monospace; font-size: 0.75rem; letter-spacing: 0.1em; color: var(--muted); text-transform: uppercase; margin-bottom: 1rem; }
+
+  .key-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+  .key-row label { font-size: 13px; color: var(--muted); min-width: 130px; }
+  .key-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.75rem;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+  }
+  .key-row input:focus { outline: none; border-color: var(--accent); }
+  .key-row input::placeholder { color: #444; }
+
+  .status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .status-dot.ok { background: var(--success); }
+  .status-dot.err { background: var(--danger); }
+  .status-dot.idle { background: var(--border); }
+
+  /* SECTION TITLES */
+  .section-title {
+    font-family: 'Space Mono', monospace;
+    font-size: 0.7rem;
+    letter-spacing: 0.12em;
+    color: var(--muted);
+    text-transform: uppercase;
+    margin-bottom: 0.75rem;
+  }
+
+  /* SEARCH */
+  .search-wrap { position: relative; margin-bottom: 1rem; }
+  .search-wrap input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.65rem 1rem 0.65rem 2.5rem;
+    color: var(--text);
+    font-size: 15px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .search-wrap input:focus { outline: none; border-color: var(--accent); }
+  .search-icon { position: absolute; left: 0.85rem; top: 50%; transform: translateY(-50%); color: var(--muted); font-size: 15px; pointer-events: none; }
+
+  .search-results {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 1rem;
+  }
+  .search-result-item {
+    display: flex; align-items: center; gap: 0.75rem;
+    padding: 0.65rem 1rem;
+    cursor: pointer;
+    transition: background 0.1s;
+    border-bottom: 1px solid var(--border);
+  }
+  .search-result-item:last-child { border-bottom: none; }
+  .search-result-item:hover { background: var(--surface2); }
+  .result-img { width: 38px; height: 38px; border-radius: 4px; object-fit: cover; background: var(--border); flex-shrink: 0; }
+  .result-info { flex: 1; min-width: 0; }
+  .result-name { font-weight: 500; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result-artist { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .result-add { font-size: 18px; color: var(--accent); font-weight: 300; }
+
+  /* SEED SONGS */
+  .seed-songs { display: flex; flex-direction: column; gap: 0.5rem; margin-bottom: 1.25rem; }
+  .seed-song {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    animation: slideIn 0.2s ease;
+  }
+  @keyframes slideIn { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: translateX(0); } }
+  .seed-song img { width: 36px; height: 36px; border-radius: 4px; object-fit: cover; background: var(--border); }
+  .seed-song-info { flex: 1; min-width: 0; }
+  .seed-song-name { font-size: 13px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .seed-song-artist { font-size: 12px; color: var(--muted); }
+  .seed-remove { background: none; border: none; color: var(--muted); font-size: 18px; cursor: pointer; padding: 0; line-height: 1; }
+  .seed-remove:hover { color: var(--danger); }
+
+  /* VIBE DISPLAY */
+  .vibe-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.25rem;
+    margin-bottom: 1.25rem;
+  }
+  .vibe-bars { display: flex; flex-direction: column; gap: 0.5rem; margin-top: 0.75rem; }
+  .vibe-bar-row { display: flex; align-items: center; gap: 0.75rem; }
+  .vibe-bar-label { font-size: 12px; color: var(--muted); min-width: 90px; font-family: 'Space Mono', monospace; }
+  .vibe-bar-track { flex: 1; height: 4px; background: var(--surface2); border-radius: 2px; overflow: hidden; }
+  .vibe-bar-fill { height: 100%; border-radius: 2px; background: var(--accent); transition: width 0.6s ease; }
+  .vibe-bar-val { font-size: 12px; color: var(--muted); min-width: 30px; text-align: right; font-family: 'Space Mono', monospace; }
+
+  /* PLAYLIST */
+  .playlist { display: flex; flex-direction: column; gap: 0.5rem; }
+  .playlist-track {
+    display: flex; align-items: center; gap: 0.75rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.6rem 0.9rem;
+    transition: border-color 0.15s;
+    animation: slideIn 0.25s ease both;
+  }
+  .playlist-track:hover { border-color: var(--accent); }
+  .playlist-track.bridge { border-left: 3px solid var(--accent2); }
+  .track-num { font-family: 'Space Mono', monospace; font-size: 12px; color: var(--muted); min-width: 22px; text-align: right; }
+  .track-img { width: 40px; height: 40px; border-radius: 4px; object-fit: cover; background: var(--surface2); flex-shrink: 0; }
+  .track-info { flex: 1; min-width: 0; }
+  .track-name { font-size: 14px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .track-artist { font-size: 12px; color: var(--muted); }
+  .track-badge { font-size: 10px; background: rgba(255,106,155,0.15); color: var(--accent2); border-radius: 4px; padding: 2px 6px; font-family: 'Space Mono', monospace; flex-shrink: 0; }
+  .track-feedback { display: flex; gap: 0.4rem; margin-left: auto; flex-shrink: 0; }
+  .fb-btn { background: none; border: none; font-size: 16px; cursor: pointer; opacity: 0.4; transition: opacity 0.15s, transform 0.1s; padding: 2px; }
+  .fb-btn:hover { opacity: 1; transform: scale(1.2); }
+  .fb-btn.active-up { opacity: 1; }
+  .fb-btn.active-down { opacity: 1; }
+
+  /* FEEDBACK POPUP */
+  .fb-popup {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    margin-top: 0.4rem;
+    margin-left: 2.5rem;
+    display: flex; flex-direction: column; gap: 0.4rem;
+    animation: slideIn 0.15s ease;
+  }
+  .fb-option {
+    font-size: 12px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 0.4rem 0.75rem;
+    color: var(--text);
+    cursor: pointer;
+    text-align: left;
+    transition: border-color 0.1s, color 0.1s;
+  }
+  .fb-option:hover { border-color: var(--accent2); color: var(--accent2); }
+
+  /* TRANSITION PANEL */
+  .transition-panel {
+    background: var(--surface);
+    border: 1px solid var(--accent2);
+    border-radius: 10px;
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+  }
+  .transition-panel h3 { font-family: 'Space Mono', monospace; font-size: 0.7rem; color: var(--accent2); letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 0.75rem; }
+  .genre-input-row { display: flex; gap: 0.75rem; align-items: center; margin-bottom: 0.75rem; }
+  .genre-input-row input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.75rem;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'DM Sans', sans-serif;
+  }
+  .genre-input-row input:focus { outline: none; border-color: var(--accent2); }
+
+  /* LOADING */
+  .loading-bar {
+    height: 2px;
+    background: linear-gradient(90deg, var(--accent), var(--accent2));
+    border-radius: 2px;
+    animation: loadpulse 1.2s ease-in-out infinite;
+    margin-bottom: 1rem;
+  }
+  @keyframes loadpulse {
+    0%, 100% { opacity: 0.4; transform: scaleX(0.6); transform-origin: left; }
+    50% { opacity: 1; transform: scaleX(1); }
+  }
+
+  .loading-text { font-size: 13px; color: var(--muted); font-family: 'Space Mono', monospace; margin-bottom: 1rem; }
+
+  /* EMPTY STATES */
+  .empty { text-align: center; padding: 2rem; color: var(--muted); font-size: 14px; }
+
+  /* DIVIDER */
+  .divider { border: none; border-top: 1px solid var(--border); margin: 1.5rem 0; }
+
+  /* TABS */
+  .tabs { display: flex; gap: 0.25rem; margin-bottom: 1.5rem; background: var(--surface); border-radius: 8px; padding: 4px; border: 1px solid var(--border); width: fit-content; }
+  .tab { font-size: 13px; padding: 0.4rem 1rem; border-radius: 6px; background: none; color: var(--muted); font-family: 'Space Mono', monospace; font-size: 0.7rem; letter-spacing: 0.05em; }
+  .tab.active { background: var(--surface2); color: var(--text); }
+  .tab:hover:not(.active) { color: var(--text); }
+
+  .spotify-login-btn {
+    background: #1DB954;
+    color: #000;
+    font-weight: 600;
+    padding: 0.6rem 1.5rem;
+    border-radius: 500px;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 0.5rem;
+    transition: background 0.15s, transform 0.1s;
+  }
+  .spotify-login-btn:hover { background: #1ed760; transform: translateY(-1px); }
+
+  .tag { display: inline-flex; align-items: center; gap: 4px; font-size: 11px; font-family: 'Space Mono', monospace; background: rgba(124,106,255,0.12); color: var(--accent); border-radius: 4px; padding: 2px 7px; }
+
+  .notice {
+    background: rgba(124,106,255,0.08);
+    border: 1px solid rgba(124,106,255,0.2);
+    border-radius: 8px;
+    padding: 0.75rem 1rem;
+    font-size: 13px;
+    color: var(--muted);
+    margin-bottom: 1rem;
+  }
+  .notice strong { color: var(--text); }
+
+  @media (max-width: 600px) {
+    .key-row { flex-direction: column; align-items: flex-start; }
+    .key-row label { min-width: unset; }
+    .key-row input { width: 100%; }
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="logo">AI<span>·</span>DJ</div>
+    <div class="header-actions" id="headerActions">
+      <button class="btn-ghost" onclick="toggleSetup()">⚙ Setup</button>
+    </div>
+  </header>
+
+  <!-- SETUP PANEL -->
+  <div class="setup-panel" id="setupPanel" style="display:none">
+    <h2>Configuration</h2>
+    <input type="hidden" id="spotifyClientId" value="84d83d84b0204f848c649ea2543de2a6" />
+    <div class="key-row">
+      <label>Anthropic API Key</label>
+      <input type="password" id="anthropicKey" placeholder="sk-ant-…" oninput="saveKeys()" />
+      <div class="status-dot idle" id="anthropicDot"></div>
+    </div>
+    <div style="margin-top:1rem; display:flex; gap:0.75rem; align-items:center; flex-wrap:wrap;">
+      <button class="btn-primary" onclick="initiateSpotifyLogin()">Connect Spotify</button>
+      <span id="spotifyStatus" style="font-size:13px; color:var(--muted)"></span>
+    </div>
+  </div>
+
+  <!-- MAIN CONTENT -->
+  <div id="mainContent">
+    <div class="notice">
+      <strong>Getting started:</strong> Click ⚙ Setup above, paste your Spotify Client ID and Anthropic API key, then connect Spotify.
+    </div>
+
+    <!-- FULL NIGHT MODE -->
+    <div style="margin-bottom:1.5rem">
+      <div class="section-title">Session mode</div>
+      <div style="display:flex; gap:0.5rem; flex-wrap:wrap;">
+        <button class="tab active" id="tabNormal" onclick="setMode('normal')">Quick playlist</button>
+        <button class="tab" id="tabNight" onclick="setMode('night')">Full night mode</button>
+      </div>
+      <div id="nightModePanel" style="display:none; margin-top:1rem; background:var(--surface); border:1px solid var(--border); border-radius:10px; padding:1rem;">
+        <div style="display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:0.75rem;">
+          <div>
+            <div style="font-size:12px; color:var(--muted); margin-bottom:4px; font-family:'Space Mono',monospace;">DURATION</div>
+            <select id="nightDuration" style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:0.4rem 0.75rem; color:var(--text); font-size:14px;">
+              <option value="1">1 hour</option>
+              <option value="2">2 hours</option>
+              <option value="3" selected>3 hours</option>
+              <option value="4">4 hours</option>
+              <option value="5">5 hours</option>
+            </select>
+          </div>
+          <div>
+            <div style="font-size:12px; color:var(--muted); margin-bottom:4px; font-family:'Space Mono',monospace;">ENERGY ARC</div>
+            <select id="nightArc" style="background:var(--bg); border:1px solid var(--border); border-radius:6px; padding:0.4rem 0.75rem; color:var(--text); font-size:14px;">
+              <option value="warmup-peak-winddown">Warm up → Peak → Wind down</option>
+              <option value="peak-sustain">Peak energy throughout</option>
+              <option value="gradual-build">Gradual build to peak</option>
+              <option value="chill-throughout">Chill throughout</option>
+            </select>
+          </div>
+        </div>
+        <p style="font-size:12px; color:var(--muted);">Claude will plan the full night in phases, selecting tracks that follow your chosen energy arc.</p>
+      </div>
+    </div>
+
+    <!-- SEED SONGS SECTION -->
+    <div style="margin-bottom:1.5rem">
+      <div class="section-title">Seed songs <span style="color:var(--muted); font-family:sans-serif; text-transform:none; letter-spacing:0; font-size:12px">— pick 2–3 songs that define the vibe</span></div>
+
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="searchInput" placeholder="Search for a song…" oninput="debounceSearch(this.value)" />
+      </div>
+
+      <div id="searchResults" style="display:none" class="search-results"></div>
+
+      <div class="seed-songs" id="seedSongs">
+        <div class="empty" id="seedEmpty">No seed songs yet — search above to add some</div>
+      </div>
+
+      <button class="btn-primary" id="generateBtn" onclick="generatePlaylist()" disabled>
+        Generate playlist
+      </button>
+    </div>
+
+    <hr class="divider" id="playlistDivider" style="display:none" />
+
+    <!-- VIBE PROFILE -->
+    <div id="vibeSection" style="display:none">
+      <div class="section-title">Vibe profile</div>
+      <div class="vibe-card">
+        <div id="vibeDescription" style="font-size:14px; color:var(--muted); margin-bottom:0.5rem;"></div>
+        <div class="vibe-bars" id="vibeBars"></div>
+      </div>
+    </div>
+
+    <!-- TRANSITION PANEL -->
+    <div id="transitionPanel" style="display:none" class="transition-panel">
+      <h3>Genre transition</h3>
+      <p style="font-size:13px; color:var(--muted); margin-bottom:0.75rem;">Tell the AI where you want to go, then add 2–3 new seed songs for the destination vibe.</p>
+      <div class="genre-input-row">
+        <input type="text" id="targetGenre" placeholder="e.g. techno, jungle, ambient…" />
+        <button class="btn-primary" onclick="generateTransition()" id="transitionBtn">Bridge it</button>
+      </div>
+      <div class="section-title" style="margin-top:0.5rem;">Destination seeds</div>
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input type="text" id="transSearchInput" placeholder="Search destination songs…" oninput="debounceTransSearch(this.value)" />
+      </div>
+      <div id="transSearchResults" style="display:none" class="search-results"></div>
+      <div class="seed-songs" id="destSeeds"></div>
+    </div>
+
+    <!-- LOADING -->
+    <div id="loadingSection" style="display:none">
+      <div class="loading-bar"></div>
+      <div class="loading-text" id="loadingText">Analyzing vibes…</div>
+    </div>
+
+    <!-- PLAYLIST -->
+    <div id="playlistSection" style="display:none">
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:0.75rem; flex-wrap:wrap; gap:0.5rem;">
+        <div class="section-title" style="margin:0">Playlist</div>
+        <div style="display:flex; gap:0.5rem; align-items:center; flex-wrap:wrap;">
+          <span class="tag" id="feedbackCount"></span>
+          <button class="btn-ghost" onclick="showTransitionPanel()" id="transitionTrigger" style="font-size:12px; padding:0.35rem 0.75rem;">+ Genre transition</button>
+          <button class="btn-ghost" onclick="loadMoreTracks()" id="loadMoreBtn" style="font-size:12px; padding:0.35rem 0.75rem; display:none;">+ Load more</button>
+          <button class="btn-ghost" onclick="exportToSpotify()" id="exportBtn" style="font-size:12px; padding:0.35rem 0.75rem; display:none;">↑ Export to Spotify</button>
+        </div>
+      </div>
+      <div class="playlist" id="playlistTracks"></div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+// ─── STATE ───────────────────────────────────────────────────
+const STATE = {
+  spotifyToken: null,
+  seeds: [],
+  destSeeds: [],
+  playlist: [],
+  feedback: JSON.parse(localStorage.getItem('dj_feedback') || '[]'),
+  vibeProfile: null,
+};
+
+let searchTimer = null;
+let transSearchTimer = null;
+
+// ─── INIT ─────────────────────────────────────────────────────
+window.addEventListener('load', () => {
+  const saved = localStorage.getItem('dj_keys');
+  if (saved) {
+    const keys = JSON.parse(saved);
+    if (keys.clientId) document.getElementById('spotifyClientId').value = keys.clientId;
+    if (keys.anthropic) document.getElementById('anthropicKey').value = keys.anthropic;
+    updateDots();
+  }
+
+  // Handle Spotify OAuth callback (PKCE)
+  const urlParams = new URLSearchParams(window.location.search);
+  const code = urlParams.get('code');
+  if (code) {
+    handleSpotifyCallback(code);
+  }
+
+  const storedToken = localStorage.getItem('dj_spotify_token');
+  if (storedToken) {
+    STATE.spotifyToken = storedToken;
+    document.getElementById('spotifyStatus').textContent = '✓ Connected';
+    document.getElementById('spotifyStatus').style.color = 'var(--success)';
+    showMain();
+  }
+
+  updateFeedbackCount();
+});
+
+function showMain() {
+  document.querySelector('.notice').style.display = 'none';
+}
+
+function toggleSetup() {
+  const p = document.getElementById('setupPanel');
+  p.style.display = p.style.display === 'none' ? 'block' : 'none';
+}
+
+function saveKeys() {
+  const clientId = document.getElementById('spotifyClientId').value.trim();
+  const anthropic = document.getElementById('anthropicKey').value.trim();
+  localStorage.setItem('dj_keys', JSON.stringify({ clientId, anthropic }));
+  updateDots();
+}
+
+function updateDots() {
+  const clientId = document.getElementById('spotifyClientId').value.trim();
+  const anthropic = document.getElementById('anthropicKey').value.trim();
+  document.getElementById('spotifyDot').className = 'status-dot ' + (clientId ? 'ok' : 'idle');
+  document.getElementById('anthropicDot').className = 'status-dot ' + (anthropic ? 'ok' : 'idle');
+}
+
+// ─── SPOTIFY AUTH (PKCE) ────────────────────────────
+async function initiateSpotifyLogin() {
+  const clientId = '84d83d84b0204f848c649ea2543de2a6';
+  const redirectUri = window.location.hostname === '127.0.0.1' ? 'http://127.0.0.1:3000' : 'https://ai-dj-agent.vercel.app';
+
+  const array = new Uint8Array(32);
+  crypto.getRandomValues(array);
+  const codeVerifier = Array.from(array, b => b.toString(16).padStart(2,'0')).join('');
+
+  const msgBuffer = new TextEncoder().encode(codeVerifier);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  const codeChallenge = btoa(String.fromCharCode(...hashArray))
+    .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
+
+  localStorage.setItem('pkce_verifier', codeVerifier);
+  localStorage.setItem('pkce_client_id', clientId);
+
+  const scopes = 'streaming user-read-playback-state user-modify-playback-state user-read-private user-read-email playlist-modify-public playlist-modify-private';
+  const url = 'https://accounts.spotify.com/authorize'
+    + '?client_id=' + clientId
+    + '&response_type=code'
+    + '&redirect_uri=' + encodeURIComponent(redirectUri)
+    + '&scope=' + encodeURIComponent(scopes)
+    + '&code_challenge_method=S256'
+    + '&code_challenge=' + codeChallenge;
+
+  window.location.href = url;
+}
+
+async function handleSpotifyCallback(code) {
+  const codeVerifier = localStorage.getItem('pkce_verifier');
+  const clientId = localStorage.getItem('pkce_client_id');
+
+  if (!codeVerifier || !clientId) {
+    alert('Login session expired — please try connecting again.');
+    return;
+  }
+
+  const body = new URLSearchParams();
+  body.append('grant_type', 'authorization_code');
+  body.append('code', code);
+  body.append('redirect_uri', 'http://127.0.0.1:3000');
+  body.append('client_id', clientId);
+  body.append('code_verifier', codeVerifier);
+
+  const res = await fetch('https://accounts.spotify.com/api/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: body.toString()
+  });
+
+  const data = await res.json();
+  if (data.access_token) {
+    STATE.spotifyToken = data.access_token;
+    localStorage.setItem('dj_spotify_token', data.access_token);
+    localStorage.removeItem('pkce_verifier');
+    localStorage.removeItem('pkce_client_id');
+    window.history.replaceState({}, '', '/');
+    document.getElementById('spotifyStatus').textContent = '✓ Connected';
+    document.getElementById('spotifyStatus').style.color = 'var(--success)';
+    showMain();
+  } else {
+    alert('Spotify login failed: ' + JSON.stringify(data));
+  }
+}
+
+// ─── SEARCH ───────────────────────────────────────────────────
+function debounceSearch(val) {
+  clearTimeout(searchTimer);
+  if (!val.trim()) { document.getElementById('searchResults').style.display = 'none'; return; }
+  searchTimer = setTimeout(() => searchSpotify(val, 'searchResults', (track) => addSeed(track, 'main')), 400);
+}
+
+function debounceTransSearch(val) {
+  clearTimeout(transSearchTimer);
+  if (!val.trim()) { document.getElementById('transSearchResults').style.display = 'none'; return; }
+  transSearchTimer = setTimeout(() => searchSpotify(val, 'transSearchResults', (track) => addSeed(track, 'dest')), 400);
+}
+
+async function searchSpotify(query, resultsId, onAdd) {
+  if (!STATE.spotifyToken) { showSetupHint(); return; }
+  try {
+    const res = await fetch(`https://api.spotify.com/v1/search?q=${encodeURIComponent(query)}&type=track&limit=5`, {
+      headers: { 'Authorization': `Bearer ${STATE.spotifyToken}` }
+    });
+    if (res.status === 401) { STATE.spotifyToken = null; localStorage.removeItem('dj_spotify_token'); showSetupHint(); return; }
+    const data = await res.json();
+    const items = data.tracks?.items || [];
+    const el = document.getElementById(resultsId);
+    if (!items.length) { el.style.display = 'none'; return; }
+    el.style.display = 'block';
+    // Store results so onclick can reference by index safely
+    window._searchResultCache = items;
+    const type = resultsId.includes('trans') ? 'dest' : 'main';
+    el.innerHTML = items.map((t, idx) => `
+      <div class="search-result-item" onclick="addSeedFromCache(${idx}, '${type}', '${resultsId}')">
+        <img class="result-img" src="${t.album?.images?.[2]?.url || ''}" alt="" />
+        <div class="result-info">
+          <div class="result-name">${escHtml(t.name)}</div>
+          <div class="result-artist">${escHtml(t.artists[0].name)}</div>
+        </div>
+        <span class="result-add">+</span>
+      </div>
+    `).join('');
+  } catch(e) { console.error(e); }
+}
+
+function addSeedFromResult(track, type, resultsId) {
+  addSeed(track, type);
+  document.getElementById(resultsId).style.display = 'none';
+  if (type === 'main') document.getElementById('searchInput').value = '';
+  else document.getElementById('transSearchInput').value = '';
+}
+
+function addSeedFromCache(idx, type, resultsId) {
+  const cache = window._searchResultCache || [];
+  const t = cache[idx];
+  if (!t) return;
+  const track = {
+    id: t.id,
+    name: t.name,
+    artist: t.artists[0].name,
+    img: t.album?.images?.[2]?.url || ''
+  };
+  addSeedFromResult(track, type, resultsId);
+}
+
+function addSeed(track, type) {
+  const arr = type === 'main' ? STATE.seeds : STATE.destSeeds;
+  const containerId = type === 'main' ? 'seedSongs' : 'destSeeds';
+  if (arr.find(s => s.id === track.id)) return;
+  if (arr.length >= 3) { arr.shift(); }
+  arr.push(track);
+  renderSeeds(arr, containerId, type);
+  if (type === 'main') updateGenerateBtn();
+}
+
+function removeSeed(id, type) {
+  const arr = type === 'main' ? STATE.seeds : STATE.destSeeds;
+  const idx = arr.findIndex(s => s.id === id);
+  if (idx > -1) arr.splice(idx, 1);
+  renderSeeds(arr, type === 'main' ? 'seedSongs' : 'destSeeds', type);
+  if (type === 'main') updateGenerateBtn();
+}
+
+function renderSeeds(arr, containerId, type) {
+  const el = document.getElementById(containerId);
+  if (!arr.length) {
+    el.innerHTML = type === 'main' ? '<div class="empty" id="seedEmpty">No seed songs yet — search above to add some</div>' : '';
+    return;
+  }
+  el.innerHTML = arr.map(s => `
+    <div class="seed-song">
+      <img src="${s.img || ''}" alt="" />
+      <div class="seed-song-info">
+        <div class="seed-song-name">${escHtml(s.name)}</div>
+        <div class="seed-song-artist">${escHtml(s.artist)}</div>
+      </div>
+      <button class="seed-remove" onclick="removeSeed('${s.id}', '${type}')" title="Remove">×</button>
+    </div>
+  `).join('');
+}
+
+function updateGenerateBtn() {
+  document.getElementById('generateBtn').disabled = STATE.seeds.length < 2;
+}
+
+// ─── GENERATE PLAYLIST ────────────────────────────────────────
+async function generatePlaylist() {
+  const anthropicKey = document.getElementById('anthropicKey').value.trim();
+  if (!anthropicKey) { alert('Paste your Anthropic API key in Setup first.'); return; }
+  if (!STATE.spotifyToken) { showSetupHint(); return; }
+
+  showLoading('Fetching audio features…');
+
+  try {
+    // Check if full night mode
+    const isNightMode = document.getElementById('tabNight').classList.contains('active');
+
+    if (isNightMode) {
+      const result = await generateNightPlaylist(anthropicKey);
+      setLoadingText('Finding tracks on Spotify…');
+      const candidates = [];
+      for (const t of (result.tracks || [])) {
+        try {
+          const q = encodeURIComponent('track:' + t.name + ' artist:' + t.artist);
+          const res = await fetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=1', {
+            headers: { 'Authorization': 'Bearer ' + STATE.spotifyToken }
+          });
+          const data = await res.json();
+          const track = data.tracks?.items?.[0];
+          if (track) candidates.push({
+            id: track.id, name: track.name,
+            artist: track.artists[0].name,
+            img: track.album?.images?.[2]?.url || '',
+            uri: track.uri
+          });
+        } catch(e) { console.warn('Search failed for', t.name); }
+      }
+      STATE.vibeProfile = result;
+      STATE.playlist = candidates;
+      hideLoading();
+      renderVibeProfile(result);
+      renderPlaylist(STATE.playlist);
+      document.getElementById('playlistDivider').style.display = 'block';
+      document.getElementById('playlistSection').style.display = 'block';
+      document.getElementById('vibeSection').style.display = 'block';
+      document.getElementById('transitionTrigger').style.display = 'inline-block';
+      document.getElementById('loadMoreBtn').style.display = 'inline-block';
+      document.getElementById('exportBtn').style.display = 'inline-block';
+      return;
+    }
+
+    // Step 1: Ask Claude to suggest tracks based on seed songs
+    setLoadingText('Claude is curating your playlist…');
+
+    const seedInfo = STATE.seeds.map(s => ({ name: s.name, artist: s.artist }));
+    const feedbackSummary = STATE.feedback.length
+      ? `\nUser feedback history (use this to avoid disliked artists/styles):\n${JSON.stringify(STATE.feedback.slice(-30))}`
+      : '';
+
+    const prompt = `You are an expert DJ AI with deep music knowledge. The user has selected these seed songs:
+${JSON.stringify(seedInfo, null, 2)}
+${feedbackSummary}
+
+Your task:
+1. Analyze the vibe of these seed songs (genre, energy, mood, tempo feel).
+2. Suggest exactly 12 specific real songs that fit this vibe perfectly for a DJ set. These must be real, well-known tracks that exist on Spotify. You MUST suggest exactly 12 tracks, no fewer.
+3. Order them for a smooth listening experience.
+4. Estimate the vibe profile.
+
+Respond ONLY with valid JSON (no markdown). The tracks array MUST contain exactly 12 items:
+{
+  "vibeDescription": "one sentence describing the vibe",
+  "vibeFeatures": {"energy": 0.8, "danceability": 0.75, "valence": 0.6, "bpmRange": "120-130"},
+  "tracks": [
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"},
+    {"name": "Song Title", "artist": "Artist Name"}
+  ]
+}`;
+
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const claudeData = await claudeRes.json();
+    const raw = claudeData.content?.[0]?.text || '{}';
+    const clean = raw.replace(/```json|```/g, '').trim();
+    const result = JSON.parse(clean);
+
+    // Step 2: Search Spotify for each suggested track
+    setLoadingText('Finding tracks on Spotify…');
+    const suggestedTracks = result.tracks || [];
+    const candidates = [];
+
+    for (const t of suggestedTracks) {
+      try {
+        const q = encodeURIComponent(`track:${t.name} artist:${t.artist}`);
+        const res = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`, {
+          headers: { 'Authorization': `Bearer ${STATE.spotifyToken}` }
+        });
+        const data = await res.json();
+        const track = data.tracks?.items?.[0];
+        if (track) {
+          candidates.push({
+            id: track.id,
+            name: track.name,
+            artist: track.artists[0].name,
+            img: track.album?.images?.[2]?.url || '',
+            uri: track.uri
+          });
+        }
+      } catch(e) { console.warn('Search failed for', t.name, e); }
+    }
+
+    STATE.vibeProfile = result;
+    STATE.playlist = candidates;
+
+    hideLoading();
+    renderVibeProfile(result);
+    renderPlaylist(STATE.playlist);
+
+    document.getElementById('playlistDivider').style.display = 'block';
+    document.getElementById('playlistSection').style.display = 'block';
+    document.getElementById('vibeSection').style.display = 'block';
+    document.getElementById('transitionTrigger').style.display = 'inline-block';
+    document.getElementById('loadMoreBtn').style.display = 'inline-block';
+    document.getElementById('exportBtn').style.display = 'inline-block';
+
+  } catch(e) {
+    hideLoading();
+    alert('Something went wrong: ' + e.message);
+    console.error(e);
+  }
+}
+
+// ─── TRANSITION ───────────────────────────────────────────────
+async function generateTransition() {
+  if (STATE.destSeeds.length < 2) { alert('Add at least 2 destination seed songs first.'); return; }
+  const genre = document.getElementById('targetGenre').value.trim() || 'new genre';
+  const anthropicKey = document.getElementById('anthropicKey').value.trim();
+
+  showLoading('Claude is finding bridge tracks…');
+
+  try {
+    const prompt = `You are an expert DJ AI. The user is currently playing a playlist with this vibe:
+${JSON.stringify(STATE.vibeProfile)}
+
+They want to gradually transition to: "${genre}"
+Their destination seed songs are: ${JSON.stringify(STATE.destSeeds.map(s => ({name:s.name,artist:s.artist})))}
+
+Suggest:
+1. 3-4 BRIDGE tracks: real songs that blend both the current vibe and "${genre}" — they should feel at home in either world and create a smooth gradual shift
+2. 5-6 DESTINATION tracks: real songs that fit solidly in "${genre}" matching the energy of the destination seeds
+
+All tracks must be real songs that exist on Spotify.
+
+Respond ONLY with valid JSON (no markdown):
+{
+  "bridgeTracks": [{"name": "Song", "artist": "Artist"}, ...],
+  "destTracks": [{"name": "Song", "artist": "Artist"}, ...]
+}`;
+
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 800,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const claudeData = await claudeRes.json();
+    const raw = claudeData.content?.[0]?.text || '{}';
+    const result = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+    // Search Spotify for each suggested track
+    setLoadingText('Finding tracks on Spotify…');
+
+    async function searchTrack(t, isBridge) {
+      try {
+        const q = encodeURIComponent(`track:${t.name} artist:${t.artist}`);
+        const res = await fetch(`https://api.spotify.com/v1/search?q=${q}&type=track&limit=1`, {
+          headers: { 'Authorization': `Bearer ${STATE.spotifyToken}` }
+        });
+        const data = await res.json();
+        const track = data.tracks?.items?.[0];
+        if (track) return {
+          id: track.id, name: track.name,
+          artist: track.artists[0].name,
+          img: track.album?.images?.[2]?.url || '',
+          uri: track.uri,
+          bridge: isBridge
+        };
+      } catch(e) { console.warn('Search failed for', t.name); }
+      return null;
+    }
+
+    const bridgeResults = (await Promise.all((result.bridgeTracks || []).map(t => searchTrack(t, true)))).filter(Boolean);
+    const destResults = (await Promise.all((result.destTracks || []).map(t => searchTrack(t, false)))).filter(Boolean);
+
+    STATE.playlist = [...STATE.playlist, ...bridgeResults, ...destResults];
+
+    hideLoading();
+    document.getElementById('transitionPanel').style.display = 'none';
+    renderPlaylist(STATE.playlist);
+
+  } catch(e) {
+    hideLoading();
+    alert('Something went wrong: ' + e.message);
+    console.error(e);
+  }
+}
+
+// ─── RENDER ───────────────────────────────────────────────────
+function renderVibeProfile(vibe) {
+  document.getElementById('vibeDescription').textContent = vibe.vibeDescription || '';
+  const f = vibe.vibeFeatures || {};
+  const bars = [
+    { label: 'energy', val: f.energy || 0 },
+    { label: 'danceability', val: f.danceability || 0 },
+    { label: 'valence', val: f.valence || 0 },
+  ];
+  document.getElementById('vibeBars').innerHTML = bars.map(b => `
+    <div class="vibe-bar-row">
+      <span class="vibe-bar-label">${b.label}</span>
+      <div class="vibe-bar-track"><div class="vibe-bar-fill" style="width:${Math.round(b.val*100)}%"></div></div>
+      <span class="vibe-bar-val">${Math.round(b.val*100)}</span>
+    </div>
+  `).join('') + (f.bpmRange ? `<div class="vibe-bar-row"><span class="vibe-bar-label">bpm range</span><span style="font-size:12px;color:var(--text);font-family:'Space Mono',monospace">${f.bpmRange}</span></div>` : '');
+}
+
+function renderPlaylist(tracks) {
+  const el = document.getElementById('playlistTracks');
+  el.innerHTML = tracks.map((t, i) => `
+    <div class="playlist-track${t.bridge ? ' bridge' : ''}" id="track_${i}">
+      <span class="track-num">${i+1}</span>
+      <img class="track-img" src="${t.img || ''}" alt="" />
+      <div class="track-info">
+        <div class="track-name">${escHtml(t.name)}</div>
+        <div class="track-artist">${escHtml(t.artist)}</div>
+      </div>
+      ${t.bridge ? '<span class="track-badge">bridge</span>' : ''}
+      <div class="track-feedback">
+        ${t.uri ? `<a href="${t.uri}" style="font-size:18px; text-decoration:none; opacity:0.5; transition:opacity 0.15s;" onmouseover="this.style.opacity=1" onmouseout="this.style.opacity=0.5" title="Play on Spotify">▶</a>` : ''}
+        <button class="fb-btn" onclick="thumbsUp(${i})" id="up_${i}" title="Good track">👍</button>
+        <button class="fb-btn" onclick="thumbsDown(${i})" id="dn_${i}" title="Not for me">👎</button>
+      </div>
+    </div>
+    <div id="fbpopup_${i}" style="display:none" class="fb-popup">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:2px;font-family:'Space Mono',monospace">WHY NOT?</div>
+      <button class="fb-option" onclick="recordFeedback(${i},'bad_song')">Bad song in general</button>
+      <button class="fb-option" onclick="recordFeedback(${i},'wrong_vibe')">Good song, wrong genre/vibe</button>
+      <button class="fb-option" onclick="recordFeedback(${i},'bad_transition')">Right genre, bad transition fit</button>
+    </div>
+  `).join('');
+}
+
+function thumbsUp(i) {
+  const t = STATE.playlist[i];
+  STATE.feedback.push({ type: 'up', name: t.name, artist: t.artist, ts: Date.now() });
+  saveFeedback();
+  document.getElementById('up_' + i).classList.add('active-up');
+  document.getElementById('dn_' + i).classList.remove('active-down');
+  document.getElementById('fbpopup_' + i).style.display = 'none';
+  updateFeedbackCount();
+}
+
+function thumbsDown(i) {
+  document.getElementById('dn_' + i).classList.add('active-down');
+  document.getElementById('up_' + i).classList.remove('active-up');
+  document.getElementById('fbpopup_' + i).style.display = 'block';
+}
+
+function recordFeedback(i, reason) {
+  const t = STATE.playlist[i];
+  STATE.feedback.push({ type: 'down', reason, name: t.name, artist: t.artist, ts: Date.now() });
+  saveFeedback();
+  document.getElementById('fbpopup_' + i).style.display = 'none';
+  updateFeedbackCount();
+}
+
+function saveFeedback() {
+  localStorage.setItem('dj_feedback', JSON.stringify(STATE.feedback));
+}
+
+function updateFeedbackCount() {
+  const el = document.getElementById('feedbackCount');
+  if (!el) return;
+  const n = STATE.feedback.length;
+  el.textContent = n > 0 ? `${n} feedback signals` : 'no feedback yet';
+}
+
+function showTransitionPanel() {
+  document.getElementById('transitionPanel').style.display = 'block';
+  document.getElementById('transitionTrigger').style.display = 'none';
+  document.getElementById('transitionPanel').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ─── LOADING ─────────────────────────────────────────────────
+function showLoading(msg) {
+  document.getElementById('loadingSection').style.display = 'block';
+  document.getElementById('loadingText').textContent = msg;
+  document.getElementById('generateBtn').disabled = true;
+}
+
+function hideLoading() {
+  document.getElementById('loadingSection').style.display = 'none';
+  document.getElementById('generateBtn').disabled = STATE.seeds.length < 2;
+}
+
+function setLoadingText(msg) {
+  document.getElementById('loadingText').textContent = msg;
+}
+
+function showSetupHint() {
+  document.getElementById('setupPanel').style.display = 'block';
+}
+
+// ─── MODE TOGGLE ─────────────────────────────────────────────
+function setMode(mode) {
+  document.getElementById('tabNormal').className = 'tab' + (mode === 'normal' ? ' active' : '');
+  document.getElementById('tabNight').className = 'tab' + (mode === 'night' ? ' active' : '');
+  document.getElementById('nightModePanel').style.display = mode === 'night' ? 'block' : 'none';
+}
+
+// ─── LOAD MORE ────────────────────────────────────────────────
+async function loadMoreTracks() {
+  const anthropicKey = document.getElementById('anthropicKey').value.trim();
+  if (!anthropicKey) { alert('Anthropic API key missing.'); return; }
+
+  showLoading('Claude is finding more tracks…');
+
+  try {
+    const existing = STATE.playlist.map(t => t.name + ' - ' + t.artist);
+    const prompt = `You are an expert DJ AI. The user has a playlist with this vibe:
+${JSON.stringify(STATE.vibeProfile)}
+
+Current playlist (do NOT repeat these):
+${existing.join('\n')}
+
+Suggest 8 more real songs that fit this vibe perfectly and haven't been listed above.
+
+Respond ONLY with valid JSON (no markdown):
+{"tracks": [{"name": "Song", "artist": "Artist"}, ...]}`;
+
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': anthropicKey,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content: prompt }]
+      })
+    });
+
+    const claudeData = await claudeRes.json();
+    const raw = claudeData.content?.[0]?.text || '{}';
+    const result = JSON.parse(raw.replace(/```json|```/g, '').trim());
+
+    setLoadingText('Finding tracks on Spotify…');
+    const newTracks = [];
+    for (const t of (result.tracks || [])) {
+      try {
+        const q = encodeURIComponent('track:' + t.name + ' artist:' + t.artist);
+        const res = await fetch('https://api.spotify.com/v1/search?q=' + q + '&type=track&limit=1', {
+          headers: { 'Authorization': 'Bearer ' + STATE.spotifyToken }
+        });
+        const data = await res.json();
+        const track = data.tracks?.items?.[0];
+        if (track) newTracks.push({
+          id: track.id, name: track.name,
+          artist: track.artists[0].name,
+          img: track.album?.images?.[2]?.url || '',
+          uri: track.uri
+        });
+      } catch(e) { console.warn('Search failed for', t.name); }
+    }
+
+    STATE.playlist = [...STATE.playlist, ...newTracks];
+    hideLoading();
+    renderPlaylist(STATE.playlist);
+
+  } catch(e) {
+    hideLoading();
+    alert('Something went wrong: ' + e.message);
+  }
+}
+
+// ─── EXPORT TO SPOTIFY ────────────────────────────────────────
+async function exportToSpotify() {
+  if (!STATE.spotifyToken) { alert('Connect Spotify first.'); return; }
+  if (!STATE.playlist.length) { alert('Generate a playlist first.'); return; }
+
+  try {
+    // Get user ID
+    const meRes = await fetch('https://api.spotify.com/v1/me', {
+      headers: { 'Authorization': 'Bearer ' + STATE.spotifyToken }
+    });
+    const me = await meRes.json();
+
+    // Create playlist using the /me endpoint directly (avoids 403 on user endpoint)
+    const createRes = await fetch('https://api.spotify.com/v1/me/playlists', {
+      method: 'POST',
+      headers: {
+        'Authorization': 'Bearer ' + STATE.spotifyToken,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        name: 'AI DJ — ' + new Date().toLocaleDateString(),
+        description: STATE.vibeProfile?.vibeDescription || 'Generated by AI DJ Agent',
+        public: true
+      })
+    });
+    const createText = await createRes.text();
+    let playlist;
+    try { playlist = JSON.parse(createText); } catch(e) { throw new Error('Could not create playlist: ' + createText.slice(0,200)); }
+    if (!playlist.id) throw new Error('Playlist creation failed: ' + JSON.stringify(playlist));
+
+    // Add tracks in batches of 50 (Spotify limit)
+    const uris = STATE.playlist.map(t => t.uri).filter(Boolean);
+    const freshToken = STATE.spotifyToken;
+    for (let i = 0; i < uris.length; i += 50) {
+      const batch = uris.slice(i, i + 50);
+      const addRes = await fetch('https://api.spotify.com/v1/playlists/' + playlist.id + '/tracks', {
+        method: 'POST',
+        headers: {
+          'Authorization': 'Bearer ' + freshToken,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ uris: batch })
+      });
+      const addText = await addRes.text();
+      const addData = addText ? JSON.parse(addText) : {};
+      if (addRes.status !== 201 && !addData.snapshot_id) throw new Error('Adding tracks failed: ' + JSON.stringify(addData));
+    }
+
+    const playlistUrl = 'https://open.spotify.com/playlist/' + playlist.id;
+    if (confirm('✓ Playlist saved to Spotify!\n\nSpotify account: ' + me.display_name + ' (' + me.email + ')\nPlaylist: ' + playlist.name + '\n\nClick OK to open it now.')) {
+      window.open(playlistUrl, '_blank');
+    }
+  } catch(e) {
+    alert('Export failed: ' + e.message);
+  }
+}
+
+// ─── FULL NIGHT GENERATE ──────────────────────────────────────
+async function generateNightPlaylist(anthropicKey) {
+  const duration = parseInt(document.getElementById('nightDuration').value);
+  const arc = document.getElementById('nightArc').value;
+  const seedInfo = STATE.seeds.map(s => ({ name: s.name, artist: s.artist }));
+  const trackCount = duration * 12;
+
+  setLoadingText('Claude is planning your full night…');
+
+  const prompt = `You are an expert DJ AI planning a full ${duration}-hour set.
+Seed songs (define the overall sound): ${JSON.stringify(seedInfo)}
+Energy arc: "${arc}"
+Target: ${trackCount} real songs that exist on Spotify.
+
+Plan the set in phases according to the arc. Each track must be a real song.
+Respond ONLY with valid JSON (no markdown):
+{
+  "vibeDescription": "one sentence describing the night",
+  "vibeFeatures": {"energy": 0.8, "danceability": 0.75, "valence": 0.6, "bpmRange": "120-135"},
+  "tracks": [{"name": "Song", "artist": "Artist"}, ...]
+}`;
+
+  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': anthropicKey,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true'
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 4000,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  const claudeData = await claudeRes.json();
+  const raw = claudeData.content?.[0]?.text || '{}';
+  return JSON.parse(raw.replace(/```json|```/g, '').trim());
+}
+
+// ─── UTILS ───────────────────────────────────────────────────
+function escHtml(str) {
+  return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+</script>
+</body>
+</html>
